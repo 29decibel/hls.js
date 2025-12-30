@@ -346,6 +346,17 @@ class AudioTrackController extends BasePlaylistController {
 
   private findTrackId(currentTrack: MediaPlaylist | null): number {
     const audioTracks = this.tracksInGroup;
+
+    // In audioOnly mode, prefer tracks with URLs (alternate audio) to avoid loading video segments
+    if (this.hls.config.audioOnly) {
+      for (let i = 0; i < audioTracks.length; i++) {
+        const track = audioTracks[i];
+        if (track.url) {
+          return i;
+        }
+      }
+    }
+
     for (let i = 0; i < audioTracks.length; i++) {
       const track = audioTracks[i];
       if (this.selectDefaultTrack && !track.default) {

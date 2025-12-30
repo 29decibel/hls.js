@@ -1013,6 +1013,10 @@ export default class Hls implements HlsEventEmitter {
     return this.streamController.maxBufferLength;
   }
 
+  public onAudioBuffered(): void {
+    this.streamController.onAudioBuffered();
+  }
+
   /**
    * Find and select the best matching audio track, making a level switch when a Group change is necessary.
    * Updates `hls.config.audioPreference`. Returns the selected track, or null when no matching track is found.

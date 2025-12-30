@@ -177,6 +177,10 @@ class AudioStreamController
   }
 
   protected getLoadPosition(): number {
+    // In audioOnly mode, continue loading using nextLoadPosition so we don't stall at currentTime.
+    if (this.hls.config.audioOnly && this.nextLoadPosition >= 0) {
+      return this.nextLoadPosition;
+    }
     if (!this.startFragRequested && this.nextLoadPosition >= 0) {
       return this.nextLoadPosition;
     }
@@ -642,10 +646,10 @@ class AudioStreamController
     }
 
     // Check if we have video initPTS
-    // If not we need to wait for it
+    // If not we need to wait for it (unless audioOnly mode where there's no video)
     const initPTS = this.initPTS[frag.cc];
     const initSegmentData = frag.initSegment?.data;
-    if (initPTS !== undefined) {
+    if (initPTS !== undefined || this.hls.config.audioOnly) {
       // this.log(`Transmuxing ${sn} of [${details.startSN} ,${details.endSN}],track ${trackId}`);
       // time Offset is accurate if level PTS is known, or if playlist is not sliding (not live)
       const accurateTimeOffset = false; // details.PTSKnown || !details.live;
@@ -764,6 +768,9 @@ class AudioStreamController
     }
     this.fragBufferedComplete(frag, part);
     if (this.media) {
+      if (this.hls.config.audioOnly) {
+        this.hls.onAudioBuffered();
+      }
       this.tick();
     }
   }

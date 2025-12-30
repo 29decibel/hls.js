@@ -116,12 +116,59 @@
 
         if (Hls.isSupported()) {
           hls = new Hls({
-            debug: false,
+            debug: true,
             audioOnly: true,
           });
 
+          log(`Config audioOnly: ${hls.config.audioOnly}`);
+          log(`UserConfig audioOnly: ${hls.userConfig.audioOnly}`);
+
           hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
             log(`Manifest parsed: ${data.levels.length} level(s)`);
+          });
+
+          // Interstitial events
+          hls.on(Hls.Events.INTERSTITIALS_PRIMARY_RESUMED, function () {
+            log('Interstitial: Primary resumed');
+          });
+
+          hls.on(Hls.Events.INTERSTITIAL_STARTED, function (event, data) {
+            log(`Interstitial started: ${data.event.identifier}`);
+          });
+
+          hls.on(Hls.Events.INTERSTITIAL_ENDED, function (event, data) {
+            log(`Interstitial ended: ${data.event.identifier}`);
+          });
+
+          hls.on(Hls.Events.INTERSTITIAL_ASSET_STARTED, function (event, data) {
+            const assetHls = data.player?.hls;
+            if (assetHls) {
+              log(`Asset audioOnly config: ${assetHls.config.audioOnly}`);
+
+              // Add listeners to track what the interstitial loads
+              assetHls.on(Hls.Events.FRAG_LOADING, function (e, d) {
+                const url = d.frag.url;
+                const shortUrl = url.split('/').pop().split('?')[0];
+                log(
+                  `[Interstitial] Loading: ${shortUrl} (type=${d.frag.type})`,
+                  'info'
+                );
+              });
+
+              assetHls.on(Hls.Events.BUFFER_CREATED, function (e, d) {
+                const trackTypes = Object.keys(d.tracks);
+                log(`[Interstitial] Buffer created: ${trackTypes.join(', ')}`);
+                if (trackTypes.includes('video')) {
+                  log('[Interstitial] WARNING: Video buffer created!', 'warn');
+                }
+              });
+
+              assetHls.on(Hls.Events.FRAG_BUFFERED, function (e, d) {
+                log(
+                  `[Interstitial] Buffered: sn=${d.frag.sn}, type=${d.frag.type}`
+                );
+              });
+            }
           });
 
           hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
