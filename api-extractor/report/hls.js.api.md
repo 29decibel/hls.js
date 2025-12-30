@@ -2298,6 +2298,7 @@ export type HlsConfig = {
     fpsController: typeof FPSController;
     progressive: boolean;
     lowLatencyMode: boolean;
+    audioOnly: boolean;
     primarySessionId?: string;
 } & ABRControllerConfig & BufferControllerConfig & CapLevelControllerConfig & EMEControllerConfig & FPSControllerConfig & GapControllerConfig & LevelControllerConfig & MP4RemuxerConfig & StreamControllerConfig & SelectionPreferences & LatencyControllerConfig & MetadataControllerConfig & TimelineControllerConfig & TSDemuxerConfig & HlsLoadPolicies & FragmentLoaderConfig & PlaylistLoaderConfig;
 
