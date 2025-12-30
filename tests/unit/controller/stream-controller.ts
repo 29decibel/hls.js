@@ -654,4 +654,92 @@ describe('StreamController', function () {
       });
     });
   });
+
+  describe('audioOnly config', function () {
+    let audioOnlyHls: Hls;
+    let audioOnlyStreamController: StreamController;
+
+    beforeEach(function () {
+      audioOnlyHls = new Hls({
+        audioOnly: true,
+        enableWorker: false,
+      });
+      audioOnlyStreamController = audioOnlyHls['streamController'];
+    });
+
+    afterEach(function () {
+      audioOnlyHls.destroy();
+    });
+
+    it('should set audioOnly property to true when config.audioOnly is enabled', function () {
+      const tracks = {
+        audio: { id: 'audio', container: 'audio/mp4', codec: 'mp4a.40.2' },
+        video: { id: 'main', container: 'video/mp4', codec: 'avc1.42E01E' },
+      };
+      audioOnlyStreamController['state'] = State.PARSING;
+      audioOnlyStreamController['levels'] = [
+        new Level({ name: '', url: '', attrs, bitrate: 500000 }),
+      ];
+      audioOnlyStreamController['level'] = 0;
+
+      audioOnlyStreamController['_bufferInitSegment'](
+        audioOnlyStreamController['levels'][0],
+        tracks as any,
+        mockFragments[0],
+        { transmuxing: { start: 0, end: 0 }, buffering: {}, id: 0 } as any,
+      );
+
+      expect(audioOnlyStreamController['audioOnly']).to.be.true;
+    });
+
+    it('should delete video track when config.audioOnly is enabled', function () {
+      const tracks = {
+        audio: { id: 'audio', container: 'audio/mp4', codec: 'mp4a.40.2' },
+        video: { id: 'main', container: 'video/mp4', codec: 'avc1.42E01E' },
+      };
+      audioOnlyStreamController['state'] = State.PARSING;
+      audioOnlyStreamController['levels'] = [
+        new Level({ name: '', url: '', attrs, bitrate: 500000 }),
+      ];
+      audioOnlyStreamController['level'] = 0;
+
+      audioOnlyStreamController['_bufferInitSegment'](
+        audioOnlyStreamController['levels'][0],
+        tracks as any,
+        mockFragments[0],
+        { transmuxing: { start: 0, end: 0 }, buffering: {}, id: 0 } as any,
+      );
+
+      expect(tracks.video).to.be.undefined;
+      expect(tracks.audio).to.not.be.undefined;
+    });
+
+    it('should delete audiovideo track and warn when config.audioOnly is enabled with muxed content', function () {
+      const tracks = {
+        audiovideo: {
+          id: 'main',
+          container: 'video/mp4',
+          codec: 'avc1.42E01E,mp4a.40.2',
+        },
+      };
+      const warnSpy = sinon.spy(audioOnlyStreamController, 'warn');
+      audioOnlyStreamController['state'] = State.PARSING;
+      audioOnlyStreamController['levels'] = [
+        new Level({ name: '', url: '', attrs, bitrate: 500000 }),
+      ];
+      audioOnlyStreamController['level'] = 0;
+
+      audioOnlyStreamController['_bufferInitSegment'](
+        audioOnlyStreamController['levels'][0],
+        tracks as any,
+        mockFragments[0],
+        { transmuxing: { start: 0, end: 0 }, buffering: {}, id: 0 } as any,
+      );
+
+      expect(tracks.audiovideo).to.be.undefined;
+      expect(warnSpy).to.have.been.calledWith(
+        'audioOnly mode is not supported with muxed fMP4 (audiovideo) content',
+      );
+    });
+  });
 });

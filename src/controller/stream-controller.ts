@@ -1287,7 +1287,8 @@ export default class StreamController
     }
 
     // Avoid buffering if backtracking this fragment
-    if (video && details) {
+    // Skip video buffering entirely if audioOnly config is enabled
+    if (video && details && !this.config.audioOnly) {
       if (audio && video.type === 'audiovideo') {
         this.logMuxedErr(frag);
       }
@@ -1434,6 +1435,18 @@ export default class StreamController
     }
 
     this.audioOnly = !!tracks.audio && !tracks.video;
+
+    // if audioOnly config is set, force audio-only mode and skip video tracks
+    if (this.config.audioOnly) {
+      this.audioOnly = true;
+      if (tracks.audiovideo) {
+        this.warn(
+          'audioOnly mode is not supported with muxed fMP4 (audiovideo) content',
+        );
+        delete tracks.audiovideo;
+      }
+      delete tracks.video;
+    }
 
     // if audio track is expected to come from audio stream controller, discard any coming from main
     if (this.altAudio && !this.audioOnly) {
