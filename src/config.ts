@@ -333,6 +333,7 @@ export type HlsConfig = {
   fpsController: typeof FPSController;
   progressive: boolean;
   lowLatencyMode: boolean;
+  audioOnly: boolean;
   primarySessionId?: string;
 } & ABRControllerConfig &
   BufferControllerConfig &
@@ -451,6 +452,7 @@ export const hlsDefaultConfig: HlsConfig = {
   testBandwidth: true,
   progressive: false,
   lowLatencyMode: true,
+  audioOnly: false,
   cmcd: undefined,
   enableDateRangeMetadataCues: true,
   enableEmsgMetadataCues: true,

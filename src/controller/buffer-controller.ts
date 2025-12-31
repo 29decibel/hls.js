@@ -259,8 +259,13 @@ export default class BufferController extends Logger implements ComponentAPI {
     // sourcebuffers will be created all at once when the expected nb of tracks will be reached
     // in case alt audio is not used, only one BUFFER_CODEC event will be fired from main stream controller
     // it will contain the expected nb of source buffers, no need to compute it
+    // in audioOnly mode, only audio codec event will be fired
     let codecEvents: number = 2;
-    if ((data.audio && !data.video) || !data.altAudio) {
+    if (
+      (data.audio && !data.video) ||
+      !data.altAudio ||
+      this.hls.config.audioOnly
+    ) {
       codecEvents = 1;
     }
     this.bufferCodecEventsTotal = codecEvents;

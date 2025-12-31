@@ -1,0 +1,235 @@
+<html>
+  <head>
+    <title>Hls.js demo - Audio Only</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      #url-input {
+        flex: 1;
+        padding: 10px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      #load-btn {
+        padding: 10px 20px;
+        font-size: 14px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #load-btn:hover {
+        background: #0056b3;
+      }
+      audio {
+        width: 100%;
+        margin-bottom: 20px;
+      }
+      #status {
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .log-entry {
+        margin: 2px 0;
+      }
+      .log-info {
+        color: #007bff;
+      }
+      .log-warn {
+        color: #ffc107;
+      }
+      .log-error {
+        color: #dc3545;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Hls.js Audio Only Demo</h1>
+
+    <div class="controls">
+      <input
+        type="text"
+        id="url-input"
+        placeholder="Paste HLS URL here..."
+        value="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+      />
+      <button id="load-btn">Load & Play</button>
+    </div>
+
+    <audio id="audio" controls></audio>
+
+    <div id="status"></div>
+
+    <script src="../dist/hls.js"></script>
+    <script>
+      const audio = document.getElementById('audio');
+      const urlInput = document.getElementById('url-input');
+      const loadBtn = document.getElementById('load-btn');
+      const status = document.getElementById('status');
+
+      let hls = null;
+
+      function log(message, level = 'info') {
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${level}`;
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        status.appendChild(entry);
+        status.scrollTop = status.scrollHeight;
+      }
+
+      function loadStream() {
+        const url = urlInput.value.trim();
+        if (!url) {
+          log('Please enter a URL', 'warn');
+          return;
+        }
+
+        // Destroy previous instance
+        if (hls) {
+          hls.destroy();
+          hls = null;
+        }
+
+        status.innerHTML = '';
+        log('Initializing HLS.js with audioOnly: true');
+
+        if (Hls.isSupported()) {
+          hls = new Hls({
+            debug: true,
+            audioOnly: true,
+          });
+
+          log(`Config audioOnly: ${hls.config.audioOnly}`);
+          log(`UserConfig audioOnly: ${hls.userConfig.audioOnly}`);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+            log(`Manifest parsed: ${data.levels.length} level(s)`);
+          });
+
+          // Interstitial events
+          hls.on(Hls.Events.INTERSTITIALS_PRIMARY_RESUMED, function () {
+            log('Interstitial: Primary resumed');
+          });
+
+          hls.on(Hls.Events.INTERSTITIAL_STARTED, function (event, data) {
+            log(`Interstitial started: ${data.event.identifier}`);
+          });
+
+          hls.on(Hls.Events.INTERSTITIAL_ENDED, function (event, data) {
+            log(`Interstitial ended: ${data.event.identifier}`);
+          });
+
+          hls.on(Hls.Events.INTERSTITIAL_ASSET_STARTED, function (event, data) {
+            const assetHls = data.player?.hls;
+            if (assetHls) {
+              log(`Asset audioOnly config: ${assetHls.config.audioOnly}`);
+
+              // Add listeners to track what the interstitial loads
+              assetHls.on(Hls.Events.FRAG_LOADING, function (e, d) {
+                const url = d.frag.url;
+                const shortUrl = url.split('/').pop().split('?')[0];
+                log(
+                  `[Interstitial] Loading: ${shortUrl} (type=${d.frag.type})`,
+                  'info'
+                );
+              });
+
+              assetHls.on(Hls.Events.BUFFER_CREATED, function (e, d) {
+                const trackTypes = Object.keys(d.tracks);
+                log(`[Interstitial] Buffer created: ${trackTypes.join(', ')}`);
+                if (trackTypes.includes('video')) {
+                  log('[Interstitial] WARNING: Video buffer created!', 'warn');
+                }
+              });
+
+              assetHls.on(Hls.Events.FRAG_BUFFERED, function (e, d) {
+                log(
+                  `[Interstitial] Buffered: sn=${d.frag.sn}, type=${d.frag.type}`
+                );
+              });
+            }
+          });
+
+          hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
+            log(`Level loaded: ${data.details.fragments.length} fragments`);
+          });
+
+          hls.on(Hls.Events.AUDIO_TRACK_LOADED, function (event, data) {
+            log(
+              `Audio track loaded: ${data.details.fragments.length} fragments`
+            );
+          });
+
+          hls.on(Hls.Events.FRAG_LOADED, function (event, data) {
+            log(`Fragment loaded: sn=${data.frag.sn}, type=${data.frag.type}`);
+          });
+
+          hls.on(Hls.Events.BUFFER_CREATED, function (event, data) {
+            const trackTypes = Object.keys(data.tracks);
+            log(`Buffer created: ${trackTypes.join(', ')}`);
+            if (trackTypes.includes('video')) {
+              log(
+                'WARNING: Video buffer was created (audioOnly may not be working)',
+                'warn'
+              );
+            }
+          });
+
+          hls.on(Hls.Events.ERROR, function (event, data) {
+            log(`Error: ${data.type} - ${data.details}`, 'error');
+            if (data.fatal) {
+              log('Fatal error, stopping playback', 'error');
+            }
+          });
+
+          hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+            log('Media attached, starting playback...');
+            audio
+              .play()
+              .catch((e) => log(`Autoplay blocked: ${e.message}`, 'warn'));
+          });
+
+          log(`Loading: ${url}`);
+          hls.loadSource(url);
+          hls.attachMedia(audio);
+        } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+          log('Using native HLS support');
+          audio.src = url;
+          audio.addEventListener('canplay', function () {
+            audio.play();
+          });
+        } else {
+          log('HLS is not supported in this browser', 'error');
+        }
+      }
+
+      loadBtn.addEventListener('click', loadStream);
+      urlInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+          loadStream();
+        }
+      });
+    </script>
+  </body>
+</html>

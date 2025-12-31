@@ -253,6 +253,15 @@ export default class StreamController
       return;
     }
 
+    // In audioOnly mode, skip main level loading if the selected audio track has a URL
+    // Let audio-stream-controller handle loading from the audio track instead
+    if (this.config.audioOnly) {
+      const selectedAudioTrack = hls.audioTracks[hls.audioTrack];
+      if (selectedAudioTrack?.url) {
+        return;
+      }
+    }
+
     const level = this.buffering ? hls.nextLoadLevel : hls.loadLevel;
     if (!levels?.[level]) {
       return;
@@ -613,7 +622,7 @@ export default class StreamController
     this.couldBacktrack = false;
     this.fragPlaying = this.backtrackFragment = null;
     this.altAudio = AlternateAudio.DISABLED;
-    this.audioOnly = false;
+    this.audioOnly = this.config.audioOnly;
   }
 
   private onManifestParsed(
@@ -1020,6 +1029,25 @@ export default class StreamController
     return this._hasEnoughToStart;
   }
 
+  public onAudioBuffered() {
+    if (!this.config.audioOnly || this._hasEnoughToStart) {
+      return;
+    }
+    const media = this.media;
+    if (!media) {
+      return;
+    }
+    const buffered = BufferHelper.getBuffered(media);
+    if (buffered.length) {
+      const bufferStart = buffered.start(0);
+      if (media.currentTime < bufferStart - this.config.maxBufferHole) {
+        this.startPosition = bufferStart;
+      }
+      this._hasEnoughToStart = true;
+      this.seekToStartPos();
+    }
+  }
+
   protected onError(event: Events.ERROR, data: ErrorData) {
     if (data.fatal) {
       this.state = State.ERROR;
@@ -1287,7 +1315,8 @@ export default class StreamController
     }
 
     // Avoid buffering if backtracking this fragment
-    if (video && details) {
+    // Skip video buffering entirely if audioOnly config is enabled
+    if (video && details && !this.config.audioOnly) {
       if (audio && video.type === 'audiovideo') {
         this.logMuxedErr(frag);
       }
@@ -1434,6 +1463,18 @@ export default class StreamController
     }
 
     this.audioOnly = !!tracks.audio && !tracks.video;
+
+    // if audioOnly config is set, force audio-only mode and skip video tracks
+    if (this.config.audioOnly) {
+      this.audioOnly = true;
+      if (tracks.audiovideo) {
+        this.warn(
+          'audioOnly mode is not supported with muxed fMP4 (audiovideo) content',
+        );
+        delete tracks.audiovideo;
+      }
+      delete tracks.video;
+    }
 
     // if audio track is expected to come from audio stream controller, discard any coming from main
     if (this.altAudio && !this.audioOnly) {
